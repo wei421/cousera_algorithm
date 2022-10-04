@@ -1,38 +1,39 @@
+package com.cousera.algorithm.part1.week1;
+
 import edu.princeton.cs.algs4.WeightedQuickUnionUF;
 
-public class Percolation {
+public class Percolation_auxuf {
     // creates n-by-n grid, with all sites initially blocked
-    private static final byte OPEN = Byte.parseByte("1", 2);
-    private static final byte CLOSE = Byte.parseByte("0", 2);
-    private static final byte TOPCONNECTED = Byte.parseByte("10", 2);
-    private static final byte BOTTOMCONNECTED = Byte.parseByte("100", 2); // 100
-    private static final byte PERCOLATED = Byte.parseByte("111", 2);      // 111
-    private static final byte ISFULL = Byte.parseByte("11", 2);
-
-
-    private final byte[] status;
+    private final boolean[][] isOpen;
     private final WeightedQuickUnionUF unionFind;
+    private final WeightedQuickUnionUF unionFindisFull;
+    private final int headPoint;  // default open
+    private final int endPoint;   // default open
     private final int num;          // constand number of n
     private int openCount = 0;
-    private boolean isPercolated = false;
 
-    public Percolation(int n) {
+    public Percolation_auxuf(int n) {
         if (n <= 0) throw new IllegalArgumentException();
-        status = new byte[n * n];
-        for (int i = 0; i < n * n; i++) {
-            status[i] = CLOSE;
+        isOpen = new boolean[n][n];
+        for (int row = 0; row < n; row++) {
+            for (int col = 0; col < n; col++) {
+                isOpen[row][col] = false;
+            }
         }
-        unionFind = new WeightedQuickUnionUF(n * n);
+        unionFind = new WeightedQuickUnionUF(n * n + 2);
+        unionFindisFull = new WeightedQuickUnionUF(n * n + 1);
+        headPoint = n * n;
+        endPoint = n * n + 1;
         num = n;
     }
 
     // opens the site (row, col) if it is not open already
     public void open(int row, int col) {
         if (isOpen(row, col)) return;
-        int id = getId(row, col);
-        status[id] = (byte) (status[id] | OPEN);
-        openCount++;
 
+        isOpen[row - 1][col - 1] = true;
+        openCount++;
+        int id = getId(row, col);
 
         int tid;
         // not in the first col.
@@ -53,7 +54,7 @@ public class Percolation {
             union(id, tid);
         } else {
             // connect to headPoint
-            status[id] = (byte) (status[id] | TOPCONNECTED);
+            union(id, headPoint);
         }
 
         // not in the last row.
@@ -62,14 +63,7 @@ public class Percolation {
             union(id, tid);
         } else {
             // connect to endPoint
-            status[id] = (byte) (status[id] | BOTTOMCONNECTED);
-        }
-
-        int proot = unionFind.find(id);
-        status[proot] = (byte) (status[proot] | status[id]);
-
-        if (status[proot] == PERCOLATED) {
-            isPercolated = true;
+            union(id, endPoint);
         }
     }
 
@@ -77,15 +71,13 @@ public class Percolation {
     // is the site (row, col) open?
     public boolean isOpen(int row, int col) {
         if (row <= 0 || col <= 0 || row > num || col > num) throw new IllegalArgumentException();
-        return (status[getId(row, col)] & OPEN) == OPEN;
+        return isOpen[row - 1][col - 1];
     }
 
     // is the site (row, col) full?
     public boolean isFull(int row, int col) {
-        if (row <= 0 || col <= 0 || row > num || col > num) throw new IllegalArgumentException();
-        int pid = unionFind.find(getId(row, col));
-        byte stat = status[pid];
-        return (stat & ISFULL) == ISFULL;
+        int id = getId(row, col);
+        return unionFindisFull.find(headPoint) == unionFindisFull.find(id);
     }
 
     // returns the number of open sites
@@ -95,7 +87,7 @@ public class Percolation {
 
     // does the system percolate?
     public boolean percolates() {
-        return isPercolated;
+        return unionFind.find(headPoint) == unionFind.find(endPoint);
     }
 
     // test client (optional)
@@ -104,10 +96,10 @@ public class Percolation {
     }
 
     private void union(int p, int q) {
-        if (isOpen(q)) {
-            int qroot = unionFind.find(q);
-            status[p] = (byte) (status[p] | status[qroot]);
+        if (isOpen(p) && isOpen(q)) {
             unionFind.union(p, q);
+            if (p > num * num || q > num * num) return;
+            unionFindisFull.union(p, q);
         }
     }
 
